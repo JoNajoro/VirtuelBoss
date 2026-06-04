@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Match Predictor — Prédiction</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3d;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --green: #00ff88;
+    --red: #ff4466;
+    --yellow: #ffd600;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --font-body: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; }
+
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 40px; border-bottom: 1px solid var(--border); background: var(--surface);
+  }
+  .nav-logo { font-family: var(--font-display); font-size: 1.8rem; letter-spacing: 3px; color: var(--accent); }
+  .nav-links { display: flex; gap: 8px; }
+  .nav-links a {
+    padding: 8px 20px; border-radius: 6px; text-decoration: none;
+    font-size: 0.85rem; font-weight: 500; color: var(--muted); transition: all 0.2s;
+  }
+  .nav-links a.active, .nav-links a:hover { background: var(--surface2); color: var(--text); }
+  .nav-links a.active { color: var(--accent); border: 1px solid var(--border); }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+  .page-header { margin-bottom: 40px; }
+  .page-header h1 { font-family: var(--font-display); font-size: 3rem; letter-spacing: 4px; margin-bottom: 8px; }
+  .page-header p { color: var(--muted); font-size: 0.95rem; }
+
+  /* TRAIN SECTION */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+  .section-title {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+
+  .train-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .model-status {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    flex: 1;
+  }
+  .status-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--muted); flex-shrink: 0;
+  }
+  .status-dot.ready { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .status-dot.loading { animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .status-text { font-size: 0.85rem; }
+
+  /* PREDICT FORM */
+  .predict-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .field label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .field input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    padding: 14px 16px;
+    outline: none;
+    transition: border-color 0.2s;
+    text-align: center;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .field .hint { font-size: 0.75rem; color: var(--muted); text-align: center; }
+
+  /* RESULT */
+  .predict-result {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
+    display: none;
+  }
+  .predict-result.show { display: block; }
+  .result-label {
+    font-family: var(--font-display);
+    font-size: 3.5rem;
+    letter-spacing: 6px;
+    margin-bottom: 8px;
+  }
+  .result-label.D { color: var(--green); }
+  .result-label.N { color: var(--yellow); }
+  .result-label.E { color: var(--red); }
+  .result-confiance {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 32px;
+  }
+
+  /* PROBA BARS */
+  .proba-bars { display: flex; flex-direction: column; gap: 12px; }
+  .proba-row { display: flex; align-items: center; gap: 12px; }
+  .proba-row label {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    width: 90px;
+    text-align: right;
+    color: var(--muted);
+  }
+  .proba-bar-wrap {
+    flex: 1;
+    background: var(--surface);
+    border-radius: 4px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .proba-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+  }
+  .proba-bar.D { background: var(--green); }
+  .proba-bar.N { background: var(--yellow); }
+  .proba-bar.E { background: var(--red); }
+  .proba-pct {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    width: 48px;
+    text-align: right;
+  }
+
+  /* BUTTONS */
+  .btn {
+    padding: 12px 28px; border: none; border-radius: 8px;
+    font-family: var(--font-body); font-size: 0.9rem; font-weight: 500;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #33eeff; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-purple { background: var(--accent2); color: #fff; }
+  .btn-purple:hover { background: #8b4cf7; transform: translateY(-1px); }
+  .btn-purple:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(0,229,255,0.3); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    margin-right: 8px; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toast {
+    position: fixed; bottom: 30px; right: 30px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 20px; font-size: 0.85rem;
+    transform: translateY(80px); opacity: 0; transition: all 0.3s; z-index: 999;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--red); color: var(--red); }
+
+  .accuracy-badge {
+    display: inline-block; padding: 4px 14px;
+    background: rgba(0,255,136,0.12); color: var(--green);
+    border: 1px solid rgba(0,255,136,0.3);
+    border-radius: 20px; font-family: var(--font-mono);
+    font-size: 0.82rem; margin-left: 12px;
+  }
+
+  @media (max-width: 600px) {
+    .predict-form { grid-template-columns: 1fr; }
+    .train-row { flex-direction: column; align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">MATCHPRED</div>
+  <div class="nav-links">
+    <a href="/">Collecte</a>
+    <a href="/predict" class="active">Prédiction</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1>PRÉDICTION</h1>
+    <p>Entrez les cotes d'un match pour prédire le résultat.</p>
+  </div>
+
+  <!-- TRAIN -->
+  <div class="section">
+    <div class="section-title">🤖 Modèle XGBoost</div>
+    <div class="train-row">
+      <div class="model-status">
+        <div class="status-dot" id="statusDot"></div>
+        <div class="status-text" id="statusText">Vérification du modèle...</div>
+        <span class="accuracy-badge" id="accuracyBadge" style="display:none"></span>
+      </div>
+      <button class="btn btn-purple" onclick="entrainer()" id="btnTrain">
+        ⚡ Entraîner le modèle
+      </button>
+    </div>
+  </div>
+
+  <!-- PREDICT -->
+  <div class="section">
+    <div class="section-title">🎯 Entrer les cotes</div>
+    <div class="predict-form">
+      <div class="field">
+        <label>Cote Domicile</label>
+        <input type="number" id="coteDom" step="0.01" min="1" placeholder="1.85"/>
+        <div class="hint">Plus bas = favori domicile</div>
+      </div>
+      <div class="field">
+        <label>Cote Nul</label>
+        <input type="number" id="coteNul" step="0.01" min="1" placeholder="3.40"/>
+        <div class="hint">Match nul</div>
+      </div>
+      <div class="field">
+        <label>Cote Extérieur</label>
+        <input type="number" id="coteExt" step="0.01" min="1" placeholder="4.20"/>
+        <div class="hint">Plus bas = favori extérieur</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="predire()" id="btnPredict">
+      Prédire le résultat
+    </button>
+  </div>
+
+  <!-- RESULT -->
+  <div class="predict-result" id="predictResult">
+    <div class="result-label" id="resultLabel"></div>
+    <div class="result-confiance" id="resultConfiance"></div>
+    <div class="proba-bars">
+      <div class="proba-row">
+        <label>Domicile</label>
+        <div class="proba-bar-wrap"><div class="proba-bar D" id="barD" style="width:0%"></div></div>
+        <div class="proba-pct" id="pctD" style="color:var(--green)"></div>
+      </div>
+      <div class="proba-row">
+        <label>Nul</label>
+        <div class="proba-bar-wrap"><div class="proba-bar N" id="barN" style="width:0%"></div></div>
+        <div class="proba-pct" id="pctN" style="color:var(--yellow)"></div>
+      </div>
+      <div class="proba-row">
+        <label>Extérieur</label>
+        <div class="proba-bar-wrap"><div class="proba-bar E" id="barE" style="width:0%"></div></div>
+        <div class="proba-pct" id="pctE" style="color:var(--red)"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "";
+const labels = { "Domicile": "D", "Nul": "N", "Extérieur": "E" };
+
+function showToast(msg, type="success") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  setTimeout(() => t.className = "toast", 3500);
+}
+
+async function verifierStatut() {
+  try {
+    const res = await fetch(`${API}/prediction/statut`);
+    const data = await res.json();
+    const dot = document.getElementById("statusDot");
+    const txt = document.getElementById("statusText");
+    if (data.modele_disponible) {
+      dot.classList.add("ready");
+      txt.textContent = "Modèle prêt à prédire";
+    } else {
+      dot.classList.remove("ready");
+      txt.textContent = "Aucun modèle entraîné";
+    }
+  } catch(e) {
+    document.getElementById("statusText").textContent = "Serveur non disponible";
+  }
+}
+
+async function entrainer() {
+  const btn = document.getElementById("btnTrain");
+  btn.innerHTML = '<span class="spinner"></span>Entraînement...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${API}/prediction/entrainer`, { method:"POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Erreur");
+
+    document.getElementById("statusDot").classList.add("ready");
+    document.getElementById("statusText").textContent = `Modèle entraîné — ${data.nb_matches} matchs`;
+
+    const badge = document.getElementById("accuracyBadge");
+    badge.textContent = `Précision: ${data.accuracy}%`;
+    badge.style.display = "inline-block";
+
+    showToast(`✅ Entraînement réussi ! Précision: ${data.accuracy}%`);
+  } catch(e) {
+    showToast(e.message, "error");
+  } finally {
+    btn.textContent = "⚡ Entraîner le modèle";
+    btn.disabled = false;
+  }
+}
+
+async function predire() {
+  const coteDom = parseFloat(document.getElementById("coteDom").value);
+  const coteNul = parseFloat(document.getElementById("coteNul").value);
+  const coteExt = parseFloat(document.getElementById("coteExt").value);
+
+  if (isNaN(coteDom) || isNaN(coteNul) || isNaN(coteExt)) {
+    showToast("Remplissez les 3 cotes.", "error"); return;
+  }
+  if (coteDom < 1 || coteNul < 1 || coteExt < 1) {
+    showToast("Les cotes doivent être ≥ 1.", "error"); return;
+  }
+
+  const btn = document.getElementById("btnPredict");
+  btn.innerHTML = '<span class="spinner"></span>Prédiction...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${API}/prediction/predire`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ cote_dom: coteDom, cote_nul: coteNul, cote_ext: coteExt })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Erreur");
+    afficherPrediction(data);
+  } catch(e) {
+    showToast(e.message, "error");
+  } finally {
+    btn.textContent = "Prédire le résultat";
+    btn.disabled = false;
+  }
+}
+
+function afficherPrediction(data) {
+  const box = document.getElementById("predictResult");
+  const code = labels[data.resultat] || "N";
+
+  const label = document.getElementById("resultLabel");
+  label.textContent = data.resultat.toUpperCase();
+  label.className = `result-label ${code}`;
+
+  document.getElementById("resultConfiance").textContent =
+    `Confiance : ${(data.confiance * 100).toFixed(1)}%`;
+
+  // Barres
+  setBar("D", data.probabilite_dom);
+  setBar("N", data.probabilite_nul);
+  setBar("E", data.probabilite_ext);
+
+  box.classList.add("show");
+  box.scrollIntoView({ behavior:"smooth", block:"start" });
+}
+
+function setBar(code, val) {
+  const pct = (val * 100).toFixed(1);
+  setTimeout(() => {
+    document.getElementById("bar"+code).style.width = pct+"%";
+  }, 50);
+  document.getElementById("pct"+code).textContent = pct+"%";
+}
+
+verifierStatut();
+</script>
+</body>
+</html>
