@@ -1,222 +1,410 @@
 import re
-from typing import List, Tuple
+import pandas as pd
+from typing import List, Tuple, Optional
 from match import MatchCotes, MatchResultat
 
 
-# ─────────────────────────────────────────────
-# UTILITAIRES
-# ─────────────────────────────────────────────
+# ══════════════════════════════════════════════
+#  UTILITAIRES COMMUNS
+# ══════════════════════════════════════════════
+
+def _to_float(token: str) -> float:
+    return float(token.strip().replace(",", "."))
 
 def _is_cote(token: str) -> bool:
-    """Vérifie si un token est une cote (nombre décimal avec virgule ou point)."""
     return bool(re.fullmatch(r"\d+[,\.]\d+", token.strip()))
 
 
-def _to_float(token: str) -> float:
-    """Convertit une cote string en float (gère virgule et point)."""
-    return float(token.strip().replace(",", "."))
+def _normalize_team_line(ligne: str) -> str:
+    ligne = re.sub(r"\s*(?:vs|v|contre|[-–—/])\s*", " ", ligne, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", ligne).strip()
+
+
+def _strip_cotes_from_line(ligne: str) -> str:
+    return re.sub(r"(?:\s*\d+[.,]\d+)+\s*$", "", ligne).strip()
+
+
+def _extraire_cotes(ligne: str) -> List[float]:
+    return [_to_float(m.group(0)) for m in re.finditer(r"\d+[.,]\d+", ligne)]
+
+
+def _contains_cote(ligne: str) -> bool:
+    return bool(re.search(r"\d+[.,]\d+", ligne))
 
 
 def _is_score(token: str) -> bool:
-    """Vérifie si un token est un score de match (ex: 2:1, 0:0, 6:0)."""
     return bool(re.fullmatch(r"\d+:\d+", token.strip()))
 
-
 def _score_to_dash(score: str) -> str:
-    """Convertit 2:1 → 2-1."""
     return score.strip().replace(":", "-")
 
-
 def _compute_resultat(score: str) -> Tuple[str, int]:
-    """
-    À partir du score (ex: '2-1'), retourne (resultat, total_buts).
-    resultat : 'D', 'N', 'E'
-    """
     parts = score.split("-")
-    buts_dom = int(parts[0])
-    buts_ext = int(parts[1])
-    total = buts_dom + buts_ext
-    if buts_dom > buts_ext:
-        resultat = "D"
-    elif buts_ext > buts_dom:
-        resultat = "E"
-    else:
-        resultat = "N"
-    return resultat, total
+    a, b = int(parts[0]), int(parts[1])
+    total = a + b
+    if a > b:   res = "D"
+    elif b > a: res = "E"
+    else:       res = "N"
+    return res, total
+
+def _normaliser(nom: str) -> str:
+    return nom.strip().lower()
 
 
-def _clean_lines(raw_text: str) -> List[str]:
+# ══════════════════════════════════════════════
+#  NETTOYAGE BRUIT (logique notebook)
+# ══════════════════════════════════════════════
+
+def est_bruit(ligne: str) -> bool:
     """
-    Nettoie le texte brut :
-    - Supprime les minutes de buts (ex: 2', 15', 82')
-    - Supprime les scores de mi-temps (ex: MT: 3:0)
-    - Supprime les lignes vides
+    Détecte les lignes inutiles :
+    - Score mi-temps : MT: 0:0
+    - Minutes de buts : 2', 15' 82', ou numéros isolés genre 27, 38
+    - Lignes vides
     """
-    lines = raw_text.splitlines()
-    cleaned = []
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        # Supprimer "MT: ..." (score mi-temps)
-        if re.match(r"MT\s*:", line, re.IGNORECASE):
-            continue
-        # Supprimer les minutes de buts (tokens comme 2', 15', 82', 61'69').
-        line = re.sub(r"\d+'", "", line)
-        line = re.sub(r"[ \t]+", " ", line).strip()
-        if not line:
-            continue
-        # Ignorer les lignes trop courtes et inutiles (ex: X seul).
-        if len(line) == 1 and line.isalpha():
-            continue
-        cleaned.append(line)
-    return cleaned
+    ligne = ligne.strip()
+    if not ligne:
+        return True
+    # MT: score mi-temps
+    if re.match(r"MT\s*:", ligne, re.IGNORECASE):
+        return True
+    # Minutes de buts : "2'" ou "15' 82'" ou combinaisons
+    if re.fullmatch(r"(\d+'\s*)+", ligne):
+        return True
+    # Numéro isolé (ex: 27, 38 — sans apostrophe mais sur ligne seule)
+    if re.fullmatch(r"\d+", ligne):
+        return True
+    return False
+
+def _nettoyer_nom_equipe(ligne: str) -> str:
+    """Supprime les marqueurs de minute associés à un nom d'équipe."""
+    return re.sub(r"\s*(?:\d+'\s*)+$", "", ligne).strip()
 
 
-# ─────────────────────────────────────────────
-# PARSER COTES (capture avant match)
-# ─────────────────────────────────────────────
+def nettoyer_lignes(texte: str) -> List[str]:
+    """Supprime toutes les lignes bruit du texte brut et nettoie les noms d'équipe."""
+    return [_nettoyer_nom_equipe(l.strip()) for l in texte.splitlines()
+            if l.strip() and not est_bruit(l)]
 
-def parse_cotes(raw_text: str) -> List[MatchCotes]:
+
+# ══════════════════════════════════════════════
+#  LISTE D'ÉQUIPES CONNUES
+# ══════════════════════════════════════════════
+
+def construire_liste_equipes(df: Optional[pd.DataFrame] = None) -> List[str]:
     """
-    Parse le texte brut de la capture AVANT match.
-    Pattern attendu (répété) :
-        Equipe_Dom
-        Equipe_Ext
-        cote_dom
-        cote_nul
-        cote_ext
+    Retourne la liste des équipes connues depuis le CSV.
+    Triées par longueur décroissante pour éviter les sous-matches.
     """
-    lines = _clean_lines(raw_text)
+    from csv_service import lire_csv
+    if df is None:
+        df = lire_csv()
+    if df.empty:
+        return []
+    equipes = set(df["equipe_dom"]).union(set(df["equipe_ext"]))
+    return sorted(equipes, key=len, reverse=True)
+
+def trouver_equipes(ligne: str, equipes: List[str]) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Cherche exactement 2 équipes dans une ligne de texte.
+    Trie par ordre d'apparition dans la ligne.
+    """
+    trouvees = []
+    for eq in equipes:
+        if eq.lower() in ligne.lower():
+            trouvees.append(eq)
+    if len(trouvees) != 2:
+        return None, None
+    trouvees.sort(key=lambda x: ligne.lower().find(x.lower()))
+    return trouvees[0], trouvees[1]
+
+
+# ══════════════════════════════════════════════
+#  PARSER COTES — 2 formats supportés
+# ══════════════════════════════════════════════
+
+def _detecter_format_cotes(lignes: List[str]) -> str:
+    """
+    Détecte le format du texte de cotes :
+    - "inline"  : "Leeds Manchester Red" sur une ligne, puis 3 cotes
+    - "separe"  : Leeds / Manchester Red sur lignes séparées, puis 3 cotes
+    """
+    for i, ligne in enumerate(lignes):
+        if _contains_cote(ligne):
+            if i > 0:
+                avant = lignes[i - 1]
+                mots = _normalize_team_line(avant).split()
+                if len(mots) >= 3:
+                    return "inline"
+            return "separe"
+    return "separe"
+
+
+def _split_inline_teams(ligne: str) -> Tuple[Optional[str], Optional[str]]:
+    """Essaye de séparer deux équipes sur une ligne inline."""
+    ligne = _strip_cotes_from_line(ligne)
+    ligne = _normalize_team_line(ligne)
+    mots = ligne.split()
+    if len(mots) < 2:
+        return None, None
+
+    meilleure = (None, None)
+    meilleur_score = -1
+    for split in range(1, len(mots)):
+        dom = " ".join(mots[:split]).strip()
+        ext = " ".join(mots[split:]).strip()
+        if not dom or not ext:
+            continue
+        if _is_cote(dom) or _is_score(dom) or _is_cote(ext) or _is_score(ext):
+            continue
+        score = 0
+        if dom[0].isupper():
+            score += 1
+        if ext[0].isupper():
+            score += 1
+        if len(dom.split()) > 1:
+            score += 1
+        if len(ext.split()) > 1:
+            score += 1
+        if score > meilleur_score:
+            meilleur_score = score
+            meilleure = (dom, ext)
+    return meilleure
+
+
+def _parse_cotes_inline_simple(lignes: List[str]) -> List[MatchCotes]:
+    """Parse un format inline sans liste d'équipes connues."""
     matches = []
     i = 0
-
-    while i < len(lines):
-        # On cherche un bloc : 2 noms + 3 cotes
-        # Lire jusqu'à trouver 3 cotes consécutives
-        if _is_cote(lines[i]):
+    while i < len(lignes):
+        ligne = lignes[i]
+        if _is_cote(ligne):
             i += 1
             continue
 
+        # Cas où l'équipe et les cotes sont sur la même ligne
+        if _contains_cote(ligne) and not _is_cote(ligne):
+            dom, ext = _split_inline_teams(ligne)
+            cotes = _extraire_cotes(ligne)
+            if dom and ext and len(cotes) >= 3:
+                matches.append(MatchCotes(
+                    equipe_dom=dom,
+                    equipe_ext=ext,
+                    cote_dom=cotes[0],
+                    cote_nul=cotes[1],
+                    cote_ext=cotes[2],
+                ))
+                i += 1
+                continue
+
+        cotes = []
+        j = i + 1
+        while j < len(lignes) and len(cotes) < 3:
+            cotes.extend(_extraire_cotes(lignes[j]))
+            j += 1
+        if len(cotes) >= 3:
+            dom, ext = _split_inline_teams(lignes[i])
+            if dom and ext:
+                matches.append(MatchCotes(
+                    equipe_dom=dom,
+                    equipe_ext=ext,
+                    cote_dom=cotes[0],
+                    cote_nul=cotes[1],
+                    cote_ext=cotes[2],
+                ))
+                i = j
+                continue
+        i += 1
+    return matches
+
+
+def parse_cotes(texte: str, equipes: List[str] = None) -> List[MatchCotes]:
+    """
+    Parse le texte de cotes AVANT match.
+    Supporte 2 formats :
+      Format inline  → "Leeds Manchester Red\n4,73\n3,84\n1,70"
+      Format séparé  → "Leeds\nManchester Red\n4,73\n3,84\n1,70"
+    Si equipes est fourni, utilise trouver_equipes() pour les lignes inline.
+    """
+    lignes = nettoyer_lignes(texte)
+    if not lignes:
+        return []
+
+    fmt = _detecter_format_cotes(lignes)
+
+    if fmt == "inline":
+        if equipes:
+            matches = _parse_cotes_inline(lignes, equipes)
+            if matches:
+                return matches
+        matches = _parse_cotes_inline_simple(lignes)
+        if matches:
+            return matches
+        return _parse_cotes_separe(lignes)
+
+    return _parse_cotes_separe(lignes)
+
+def _parse_cotes_inline(lignes: List[str], equipes: List[str]) -> List[MatchCotes]:
+    """
+    Format : "Fulham Liverpool\n3,15\n4,07\n2,02"
+    Utilise la liste des équipes connues pour identifier dom/ext.
+    """
+    matches = []
+    i = 0
+    while i < len(lignes):
+        ligne = lignes[i]
+        # Chercher une ligne contenant 2 équipes connues
+        dom, ext = trouver_equipes(ligne, equipes)
+        if dom is not None:
+            cotes = []
+            j = i + 1
+            while j < len(lignes) and len(cotes) < 3:
+                cotes.extend(_extraire_cotes(lignes[j]))
+                j += 1
+            if len(cotes) >= 3:
+                matches.append(MatchCotes(
+                    equipe_dom=dom,
+                    equipe_ext=ext,
+                    cote_dom=cotes[0],
+                    cote_nul=cotes[1],
+                    cote_ext=cotes[2],
+                ))
+                i = j
+                continue
+        i += 1
+    return matches
+
+def _parse_cotes_separe(lignes: List[str]) -> List[MatchCotes]:
+    """
+    Format : "Leeds\nManchester Red\n4,73\n3,84\n1,70"
+    Détecte les blocs : 2 noms consécutifs + 3 cotes consécutives.
+    """
+    matches = []
+    i = 0
+    while i < len(lignes):
+        if _is_cote(lignes[i]):
+            i += 1
+            continue
         # Collecter les noms jusqu'aux cotes
         noms = []
         j = i
-        while j < len(lines) and not _is_cote(lines[j]):
-            noms.append(lines[j])
+        while j < len(lignes) and not _contains_cote(lignes[j]):
+            noms.append(lignes[j])
             j += 1
-
-        # Collecter les 3 cotes
+        # Collecter 3 cotes, même si elles sont sur la même ligne ou groupées
         cotes = []
-        while j < len(lines) and _is_cote(lines[j]) and len(cotes) < 3:
-            cotes.append(_to_float(lines[j]))
+        while j < len(lignes) and len(cotes) < 3:
+            cotes.extend(_extraire_cotes(lignes[j]))
             j += 1
-
-        if len(noms) >= 2 and len(cotes) == 3:
-            equipe_dom = noms[0].strip()
-            equipe_ext = noms[1].strip()
+        if len(noms) >= 2 and len(cotes) >= 3:
             matches.append(MatchCotes(
-                equipe_dom=equipe_dom,
-                equipe_ext=equipe_ext,
+                equipe_dom=noms[0].strip(),
+                equipe_ext=noms[1].strip(),
                 cote_dom=cotes[0],
                 cote_nul=cotes[1],
-                cote_ext=cotes[2]
+                cote_ext=cotes[2],
+            ))
+            i = j
+        elif len(noms) == 1 and _split_inline_teams(noms[0]) != (None, None) and len(cotes) >= 3:
+            dom, ext = _split_inline_teams(noms[0])
+            matches.append(MatchCotes(
+                equipe_dom=dom,
+                equipe_ext=ext,
+                cote_dom=cotes[0],
+                cote_nul=cotes[1],
+                cote_ext=cotes[2],
             ))
             i = j
         else:
             i += 1
-
     return matches
 
 
-# ─────────────────────────────────────────────
-# PARSER RESULTATS (capture après match)
-# ─────────────────────────────────────────────
+# ══════════════════════════════════════════════
+#  PARSER RÉSULTATS (logique notebook améliorée)
+# ══════════════════════════════════════════════
 
-def parse_resultats(raw_text: str) -> List[MatchResultat]:
+def _nettoyer_nom_equipe(ligne: str) -> str:
+    """Supprime les marqueurs de minute associés à un nom d'équipe."""
+    return re.sub(r"\s*(?:\d+'\s*)+$", "", ligne).strip()
+
+
+def parse_resultats(texte: str) -> List[MatchResultat]:
     """
-    Parse le texte brut de la capture RÉSULTAT.
-    Pattern attendu (répété, avec minutes optionnelles déjà supprimées) :
-        Equipe_Dom
-        score_final   (ex: 6:0)
-        Equipe_Ext
+    Parse le texte de résultats après match.
+    Utilise la stratégie du notebook :
+      → nettoyer le bruit d'abord
+      → chercher les scores (X:Y) dans les lignes
+      → prendre dom = ligne[i-1], ext = ligne[i+1]
+    Robuste aux minutes, numéros isolés, MT, lignes mal ordonnées.
     """
-    lines = _clean_lines(raw_text)
+    lignes = nettoyer_lignes(texte)
     matches = []
     i = 0
+    while i < len(lignes):
+        if _is_score(lignes[i]):
+            if i == 0 or i + 1 >= len(lignes):
+                i += 1
+                continue
+            dom = _nettoyer_nom_equipe(lignes[i - 1].strip())
+            score_raw = lignes[i].strip()
+            ext = _nettoyer_nom_equipe(lignes[i + 1].strip())
 
-    while i < len(lines):
-        # On cherche les deux principaux patterns :
-        # 1) Equipe_Dom
-        #    score_final
-        #    Equipe_Ext
-        # 2) Equipe_Dom
-        #    Equipe_Ext
-        #    score_final
-        if _is_score(lines[i]):
-            i += 1
-            continue
+            if not dom or not ext:
+                i += 1
+                continue
 
-        # Pattern 1 : nom -> score -> nom
-        if i + 2 < len(lines) and _is_score(lines[i + 1]):
-            equipe_dom = lines[i].strip()
-            score_raw = lines[i + 1].strip()
-            equipe_ext = lines[i + 2].strip()
-            i += 3
-        # Pattern 2 : nom -> nom -> score
-        elif i + 2 < len(lines) and not _is_score(lines[i + 1]) and _is_score(lines[i + 2]):
-            equipe_dom = lines[i].strip()
-            equipe_ext = lines[i + 1].strip()
-            score_raw = lines[i + 2].strip()
-            i += 3
+            # Vérifier que dom et ext ne sont pas eux-mêmes des scores ou cotes
+            if _is_score(dom) or _is_cote(dom):
+                i += 1
+                continue
+            if _is_score(ext) or _is_cote(ext):
+                i += 1
+                continue
+
+            score = _score_to_dash(score_raw)
+            resultat, total_buts = _compute_resultat(score)
+
+            matches.append(MatchResultat(
+                equipe_dom=dom,
+                equipe_ext=ext,
+                score=score,
+                total_buts=total_buts,
+                resultat=resultat,
+            ))
+            i += 2  # sauter ext pour éviter double lecture
         else:
             i += 1
-            continue
-
-        score = _score_to_dash(score_raw)
-        resultat, total_buts = _compute_resultat(score)
-
-        matches.append(MatchResultat(
-            equipe_dom=equipe_dom,
-            equipe_ext=equipe_ext,
-            score=score,
-            total_buts=total_buts,
-            resultat=resultat
-        ))
 
     return matches
 
 
-# ─────────────────────────────────────────────
-# FUSION cotes + résultats
-# ─────────────────────────────────────────────
+# ══════════════════════════════════════════════
+#  FUSION cotes + résultats
+# ══════════════════════════════════════════════
 
 def fusionner(cotes: List[MatchCotes], resultats: List[MatchResultat]) -> List[dict]:
     """
-    Fusionne les deux listes en utilisant les noms des équipes comme clé.
+    Joint les deux listes sur (equipe_dom, equipe_ext).
     Correspondance insensible à la casse et aux espaces.
     """
-    def normaliser(nom: str) -> str:
-        return nom.strip().lower()
-
-    resultats_index = {
-        (normaliser(r.equipe_dom), normaliser(r.equipe_ext)): r
+    idx = {
+        (_normaliser(r.equipe_dom), _normaliser(r.equipe_ext)): r
         for r in resultats
     }
-
     fusionnes = []
     for c in cotes:
-        key = (normaliser(c.equipe_dom), normaliser(c.equipe_ext))
-        r = resultats_index.get(key)
+        key = (_normaliser(c.equipe_dom), _normaliser(c.equipe_ext))
+        r = idx.get(key)
         if r:
             fusionnes.append({
-                "equipe_dom": c.equipe_dom,
-                "equipe_ext": c.equipe_ext,
-                "cote_dom": c.cote_dom,
-                "cote_nul": c.cote_nul,
-                "cote_ext": c.cote_ext,
-                "score": r.score,
-                "total_buts": r.total_buts,
-                "resultat": r.resultat
+                "equipe_dom":  c.equipe_dom,
+                "equipe_ext":  c.equipe_ext,
+                "cote_dom":    c.cote_dom,
+                "cote_nul":    c.cote_nul,
+                "cote_ext":    c.cote_ext,
+                "score":       r.score,
+                "total_buts":  r.total_buts,
+                "resultat":    r.resultat,
             })
-
     return fusionnes
