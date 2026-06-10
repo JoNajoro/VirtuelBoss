@@ -23,13 +23,14 @@
     --font-body: 'DM Sans', sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; }
+  html, body { min-height: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; overflow-y: auto; }
 
   nav {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 40px; border-bottom: 1px solid var(--border); background: var(--surface);
+    padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--surface);
   }
-  .nav-logo { font-family: var(--font-display); font-size: 1.8rem; letter-spacing: 3px; color: var(--accent); }
+  .nav-logo { font-family: var(--font-display); font-size: 1.5rem; letter-spacing: 2px; color: var(--accent); }
   .nav-links { display: flex; gap: 8px; }
   .nav-links a {
     padding: 8px 20px; border-radius: 6px; text-decoration: none;
@@ -38,35 +39,35 @@
   .nav-links a.active, .nav-links a:hover { background: var(--surface2); color: var(--text); }
   .nav-links a.active { color: var(--accent); border: 1px solid var(--border); }
 
-  .container { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
-  .page-header { margin-bottom: 40px; }
-  .page-header h1 { font-family: var(--font-display); font-size: 3rem; letter-spacing: 4px; margin-bottom: 8px; }
-  .page-header p { color: var(--muted); font-size: 0.95rem; }
+  .container { max-width: 900px; margin: 0 auto; padding: 16px 14px; }
+  .page-header { margin-bottom: 14px; }
+  .page-header h1 { font-family: var(--font-display); font-size: 2rem; letter-spacing: 2px; margin-bottom: 4px; }
+  .page-header p { color: var(--muted); font-size: 0.82rem; line-height: 1.25; }
 
   /* TRAIN SECTION */
   .section {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 28px;
-    margin-bottom: 24px;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
   }
   .section-title {
     font-family: var(--font-mono);
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 20px;
+    letter-spacing: 1.5px;
+    margin-bottom: 14px;
   }
 
-  .train-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .train-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .model-status {
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 8px;
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 12px 20px;
+    padding: 8px 12px;
     flex: 1;
   }
   .status-dot {
@@ -76,95 +77,149 @@
   .status-dot.ready { background: var(--green); box-shadow: 0 0 8px var(--green); }
   .status-dot.loading { animation: pulse 1s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-  .status-text { font-size: 0.85rem; }
+  .status-text { font-size: 0.82rem; }
 
-  /* PREDICT FORM */
-  .predict-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-  .field { display: flex; flex-direction: column; gap: 8px; }
-  .field label {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  .field input {
+  .textarea {
+    width: 100%;
+    min-height: 70px;
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 12px;
     color: var(--text);
     font-family: var(--font-mono);
-    font-size: 1.1rem;
-    padding: 14px 16px;
+    font-size: 0.88rem;
+    padding: 12px;
+    resize: vertical;
     outline: none;
     transition: border-color 0.2s;
-    text-align: center;
+    margin-bottom: 10px;
+    line-height: 1.35;
   }
-  .field input:focus { border-color: var(--accent); }
-  .field .hint { font-size: 0.75rem; color: var(--muted); text-align: center; }
+  .textarea:focus { border-color: var(--accent); }
 
-  /* RESULT */
-  .predict-result {
+  .match-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .match-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 32px;
-    text-align: center;
-    display: none;
+    padding: 10px;
+    align-items: center;
   }
-  .predict-result.show { display: block; }
-  .result-label {
-    font-family: var(--font-display);
-    font-size: 3.5rem;
-    letter-spacing: 6px;
-    margin-bottom: 8px;
+  .match-card div {
+    color: var(--text);
+    font-size: 0.82rem;
+    line-height: 1.2;
   }
-  .result-label.D { color: var(--green); }
-  .result-label.N { color: var(--yellow); }
-  .result-label.E { color: var(--red); }
-  .result-confiance {
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
+  .match-card-label {
+    display: block;
     color: var(--muted);
-    margin-bottom: 32px;
+    font-size: 0.72rem;
+    margin-bottom: 4px;
+  }
+  .match-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+  }
+  .match-card-result {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  .match-card-result span {
+    opacity: 0.8;
+    margin-right: 8px;
   }
 
-  /* PROBA BARS */
-  .proba-bars { display: flex; flex-direction: column; gap: 12px; }
-  .proba-row { display: flex; align-items: center; gap: 12px; }
-  .proba-row label {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    width: 90px;
-    text-align: right;
+  .prediction-panel {
+    display: none;
+    margin-top: 16px;
+  }
+  .prediction-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(100px, 1fr));
+    gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .summary-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--text);
+  }
+  .summary-metric strong {
+    font-size: 1.05rem;
+  }
+  .summary-label {
     color: var(--muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
-  .proba-bar-wrap {
-    flex: 1;
-    background: var(--surface);
-    border-radius: 4px;
-    height: 8px;
-    overflow: hidden;
+  .result-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    align-items: center;
   }
-  .proba-bar {
-    height: 100%;
-    border-radius: 4px;
-    transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+  .result-card-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
-  .proba-bar.D { background: var(--green); }
-  .proba-bar.N { background: var(--yellow); }
-  .proba-bar.E { background: var(--red); }
-  .proba-pct {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    width: 48px;
+  .result-card-right {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+    color: var(--muted);
+    font-size: 0.78rem;
     text-align: right;
   }
+  .result-chip {
+    display: inline-flex;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-size: 0.75rem;
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+  }
+  .result-badge {
+    display: inline-flex;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .result-badge.D { color: var(--green); }
+  .result-badge.N { color: var(--yellow); }
+  .result-badge.E { color: var(--red); }
+  .result-time { opacity: 0.7; }
 
   /* BUTTONS */
   .btn {
-    padding: 12px 28px; border: none; border-radius: 8px;
-    font-family: var(--font-body); font-size: 0.9rem; font-weight: 500;
+    padding: 10px 20px; border: none; border-radius: 8px;
+    font-family: var(--font-body); font-size: 0.85rem; font-weight: 500;
     cursor: pointer; transition: all 0.2s;
   }
   .btn-primary { background: var(--accent); color: #000; }
@@ -201,7 +256,6 @@
   }
 
   @media (max-width: 600px) {
-    .predict-form { grid-template-columns: 1fr; }
     .train-row { flex-direction: column; align-items: stretch; }
   }
 </style>
@@ -219,7 +273,7 @@
 <div class="container">
   <div class="page-header">
     <h1>PRÉDICTION</h1>
-    <p>Entrez les cotes d'un match pour prédire le résultat.</p>
+    <p>Collez un texte brut de cotes et lancez la prédiction globale.</p>
   </div>
 
   <!-- TRAIN -->
@@ -237,60 +291,128 @@
     </div>
   </div>
 
-  <!-- PREDICT -->
   <div class="section">
-    <div class="section-title">🎯 Entrer les cotes</div>
-    <div class="predict-form">
-      <div class="field">
-        <label>Cote Domicile</label>
-        <input type="number" id="coteDom" step="0.01" min="1" placeholder="1.85"/>
-        <div class="hint">Plus bas = favori domicile</div>
-      </div>
-      <div class="field">
-        <label>Cote Nul</label>
-        <input type="number" id="coteNul" step="0.01" min="1" placeholder="3.40"/>
-        <div class="hint">Match nul</div>
-      </div>
-      <div class="field">
-        <label>Cote Extérieur</label>
-        <input type="number" id="coteExt" step="0.01" min="1" placeholder="4.20"/>
-        <div class="hint">Plus bas = favori extérieur</div>
-      </div>
+    <div class="section-title">📋 Coller les cotes brutes</div>
+    <p class="hint">Collez le texte copié depuis Google Lens ou une capture, puis extrayez les cotes.</p>
+    <textarea id="rawOddsText" class="textarea" placeholder="Collez le texte des cotes ici..."></textarea>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+      <button class="btn btn-purple" onclick="extraireCotesBrutes()" id="btnParseRaw">
+        Extraire les cotes
+      </button>
+      <button class="btn btn-primary" onclick="predireTout()" id="btnPredictAll">
+        Prédire tout
+      </button>
+      <span id="predictAllStatus" style="color:var(--muted); font-size:0.85rem;"></span>
     </div>
-    <button class="btn btn-primary" onclick="predire()" id="btnPredict">
-      Prédire le résultat
-    </button>
+    <div id="rawMatchesList" class="match-list"></div>
+    <div id="predictionPanel" class="prediction-panel">
+      <div class="section-title">📊 Présentation des résultats</div>
+      <div id="predictionSummary" class="prediction-summary"></div>
+      <div id="predictionResultsList" class="match-list"></div>
+    </div>
   </div>
 
-  <!-- RESULT -->
-  <div class="predict-result" id="predictResult">
-    <div class="result-label" id="resultLabel"></div>
-    <div class="result-confiance" id="resultConfiance"></div>
-    <div class="proba-bars">
-      <div class="proba-row">
-        <label>Domicile</label>
-        <div class="proba-bar-wrap"><div class="proba-bar D" id="barD" style="width:0%"></div></div>
-        <div class="proba-pct" id="pctD" style="color:var(--green)"></div>
-      </div>
-      <div class="proba-row">
-        <label>Nul</label>
-        <div class="proba-bar-wrap"><div class="proba-bar N" id="barN" style="width:0%"></div></div>
-        <div class="proba-pct" id="pctN" style="color:var(--yellow)"></div>
-      </div>
-      <div class="proba-row">
-        <label>Extérieur</label>
-        <div class="proba-bar-wrap"><div class="proba-bar E" id="barE" style="width:0%"></div></div>
-        <div class="proba-pct" id="pctE" style="color:var(--red)"></div>
-      </div>
-    </div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-const API = "";
+const API = window.location.origin && window.location.origin !== 'null'
+  ? window.location.origin
+  : 'http://127.0.0.1:8000';
 const labels = { "Domicile": "D", "Nul": "N", "Extérieur": "E" };
+let rawMatches = [];
+let rawResultLines = [];
+let predictionResults = [];
+
+function showPredictionPanel() {
+  const panel = document.getElementById("predictionPanel");
+  if (panel) panel.style.display = "block";
+}
+
+function resetPredictionPanel() {
+  predictionResults = [];
+  const panel = document.getElementById("predictionPanel");
+  const summary = document.getElementById("predictionSummary");
+  const list = document.getElementById("predictionResultsList");
+  if (panel) panel.style.display = "none";
+  if (summary) summary.innerHTML = "";
+  if (list) list.innerHTML = "";
+}
+
+function renderPredictionSummary() {
+  const summary = document.getElementById("predictionSummary");
+  if (!summary) return;
+  if (!predictionResults.length) {
+    summary.innerHTML = "";
+    return;
+  }
+
+  const counts = predictionResults.reduce((acc, item) => {
+    acc[item.data.resultat] = (acc[item.data.resultat] || 0) + 1;
+    return acc;
+  }, {});
+
+  summary.innerHTML = `
+    <div class="summary-metric">
+      <span class="summary-label">Total</span>
+      <strong>${predictionResults.length}</strong>
+    </div>
+    <div class="summary-metric">
+      <span class="summary-label">Domicile</span>
+      <strong>${counts["Domicile"] || 0}</strong>
+    </div>
+    <div class="summary-metric">
+      <span class="summary-label">Nul</span>
+      <strong>${counts["Nul"] || 0}</strong>
+    </div>
+    <div class="summary-metric">
+      <span class="summary-label">Extérieur</span>
+      <strong>${counts["Extérieur"] || 0}</strong>
+    </div>
+  `;
+}
+
+function displayPredictionResult(index, match, data, elapsed) {
+  const resultsList = document.getElementById("predictionResultsList");
+  if (!resultsList) return;
+
+  showPredictionPanel();
+  predictionResults[index] = { match, data, elapsed };
+  renderPredictionSummary();
+
+  let row = document.getElementById(`prediction-row-${index}`);
+  if (!row) {
+    row = document.createElement("div");
+    row.id = `prediction-row-${index}`;
+    row.className = "result-card";
+    resultsList.appendChild(row);
+  }
+
+  const resultClass = labels[data.resultat] || "";
+  row.innerHTML = `
+    <div class="result-card-left">
+      <span class="result-chip">${match.equipe_dom} vs ${match.equipe_ext}</span>
+      <span class="result-badge ${resultClass}">${data.resultat}</span>
+    </div>
+    <div class="result-card-right">
+      <span>D: ${(data.probabilite_dom * 100).toFixed(0)}%</span>
+      <span>N: ${(data.probabilite_nul * 100).toFixed(0)}%</span>
+      <span>E: ${(data.probabilite_ext * 100).toFixed(0)}%</span>
+      <span class="result-time">(${elapsed}s)</span>
+    </div>
+  `;
+}
+
+function storeResultsAndRedirect() {
+  try {
+    sessionStorage.setItem("predictionResults", JSON.stringify(predictionResults));
+    window.location.href = "/results";
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 function showToast(msg, type="success") {
   const t = document.getElementById("toast");
@@ -300,20 +422,26 @@ function showToast(msg, type="success") {
 }
 
 async function verifierStatut() {
+  const dot = document.getElementById("statusDot");
+  const txt = document.getElementById("statusText");
+  dot.classList.remove("ready");
+  dot.classList.add("loading");
+  txt.textContent = "Vérification du modèle...";
+
   try {
     const res = await fetch(`${API}/prediction/statut`);
     const data = await res.json();
-    const dot = document.getElementById("statusDot");
-    const txt = document.getElementById("statusText");
+    dot.classList.remove("loading");
+
     if (data.modele_disponible) {
       dot.classList.add("ready");
       txt.textContent = "Modèle prêt à prédire";
     } else {
-      dot.classList.remove("ready");
       txt.textContent = "Aucun modèle entraîné";
     }
   } catch(e) {
-    document.getElementById("statusText").textContent = "Serveur non disponible";
+    dot.classList.remove("loading");
+    txt.textContent = "Serveur non disponible";
   }
 }
 
@@ -343,65 +471,137 @@ async function entrainer() {
   }
 }
 
-async function predire() {
-  const coteDom = parseFloat(document.getElementById("coteDom").value);
-  const coteNul = parseFloat(document.getElementById("coteNul").value);
-  const coteExt = parseFloat(document.getElementById("coteExt").value);
 
-  if (isNaN(coteDom) || isNaN(coteNul) || isNaN(coteExt)) {
-    showToast("Remplissez les 3 cotes.", "error"); return;
-  }
-  if (coteDom < 1 || coteNul < 1 || coteExt < 1) {
-    showToast("Les cotes doivent être ≥ 1.", "error"); return;
+function extraireCotesBrutes(autoPredict = false) {
+  const texte = document.getElementById("rawOddsText").value.trim();
+  if (!texte) {
+    showToast("Collez d'abord le texte des cotes.", "error");
+    return Promise.reject(new Error("Texte vide"));
   }
 
-  const btn = document.getElementById("btnPredict");
-  btn.innerHTML = '<span class="spinner"></span>Prédiction...';
+  const btn = document.getElementById("btnParseRaw");
+  btn.textContent = "Extraction...";
   btn.disabled = true;
 
-  try {
-    const res = await fetch(`${API}/prediction/predire`, {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ cote_dom: coteDom, cote_nul: coteNul, cote_ext: coteExt })
+  return fetch(`${API}/extraction/texte/cotes`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ texte })
+  })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Impossible de parser les cotes.");
+      rawMatches = data;
+      rawResultLines = [];
+      resetPredictionPanel();
+      afficherMatchesBrutes(data);
+      showToast(`✅ ${data.length} match(s) trouvé(s)`);
+      if (autoPredict && rawMatches.length) {
+        return predireTout();
+      }
+      return data;
+    })
+    .catch(e => {
+      showToast(e.message, "error");
+      throw e;
+    })
+    .finally(() => {
+      btn.textContent = "Extraire les cotes";
+      btn.disabled = false;
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Erreur");
-    afficherPrediction(data);
-  } catch(e) {
-    showToast(e.message, "error");
-  } finally {
-    btn.textContent = "Prédire le résultat";
-    btn.disabled = false;
+}
+
+function afficherMatchesBrutes(matches) {
+  const container = document.getElementById("rawMatchesList");
+  container.innerHTML = "";
+  if (!matches.length) {
+    resetPredictionPanel();
+    container.innerHTML = "<p>Aucune cote détectée.</p>";
+    return;
   }
+
+  matches.forEach((match, index) => {
+    const card = document.createElement("div");
+    card.className = "match-card";
+
+    const details = document.createElement("div");
+    details.innerHTML = `
+      <strong>${match.equipe_dom} vs ${match.equipe_ext}</strong>
+      <div class="match-card-label">Domicile: ${match.cote_dom} • Nul: ${match.cote_nul} • Extérieur: ${match.cote_ext}</div>
+    `;
+
+    const actions = document.createElement("div");
+    actions.className = "match-card-actions";
+
+    const resultLine = document.createElement("div");
+    resultLine.className = "match-card-result";
+    resultLine.textContent = "Résultat non calculé";
+
+    rawResultLines[index] = resultLine;
+
+    actions.appendChild(resultLine);
+    card.appendChild(details);
+    card.appendChild(actions);
+    container.appendChild(card);
+  });
 }
 
-function afficherPrediction(data) {
-  const box = document.getElementById("predictResult");
-  const code = labels[data.resultat] || "N";
-
-  const label = document.getElementById("resultLabel");
-  label.textContent = data.resultat.toUpperCase();
-  label.className = `result-label ${code}`;
-
-  document.getElementById("resultConfiance").textContent =
-    `Confiance : ${(data.confiance * 100).toFixed(1)}%`;
-
-  // Barres
-  setBar("D", data.probabilite_dom);
-  setBar("N", data.probabilite_nul);
-  setBar("E", data.probabilite_ext);
-
-  box.classList.add("show");
-  box.scrollIntoView({ behavior:"smooth", block:"start" });
+function predireMatch(match, resultLine, index) {
+  const start = performance.now();
+  resultLine.textContent = "Prédiction en cours...";
+  return fetch(`${API}/prediction/predire`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ cote_dom: match.cote_dom, cote_nul: match.cote_nul, cote_ext: match.cote_ext })
+  })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Erreur de prédiction.");
+      const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+      resultLine.innerHTML = `<span class="result-badge ${labels[data.resultat] || ''}">${data.resultat}</span> D:${(data.probabilite_dom * 100).toFixed(0)}% • N:${(data.probabilite_nul * 100).toFixed(0)}% • E:${(data.probabilite_ext * 100).toFixed(0)}% <span style="opacity:.7; font-size:.8rem;">(${elapsed}s)</span>`;
+      displayPredictionResult(index, match, data, elapsed);
+      return data;
+    })
+    .catch(e => {
+      resultLine.textContent = "Échec de prédiction";
+      showToast(e.message, "error");
+      throw e;
+    });
 }
 
-function setBar(code, val) {
-  const pct = (val * 100).toFixed(1);
-  setTimeout(() => {
-    document.getElementById("bar"+code).style.width = pct+"%";
-  }, 50);
-  document.getElementById("pct"+code).textContent = pct+"%";
+function predireTout() {
+  if (!rawMatches.length) {
+    const texte = document.getElementById("rawOddsText").value.trim();
+    if (!texte) {
+      showToast("Collez d'abord le texte des cotes.", "error");
+      return;
+    }
+    return extraireCotesBrutes(true);
+  }
+
+  const btn = document.getElementById("btnPredictAll");
+  const status = document.getElementById("predictAllStatus");
+  btn.textContent = "Prédiction...";
+  btn.disabled = true;
+  status.textContent = "0 / " + rawMatches.length;
+
+  rawMatches.reduce((promise, match, index) => {
+    return promise.then(() => {
+      status.textContent = `${index + 1} / ${rawMatches.length}`;
+      return predireMatch(match, rawResultLines[index], index);
+    });
+  }, Promise.resolve())
+    .then(() => {
+      status.textContent = `Terminé en ${rawMatches.length} match(s)`;
+      storeResultsAndRedirect();
+    })
+    .catch(() => {
+      status.textContent = `Terminé avec erreurs`;
+    })
+    .finally(() => {
+      btn.textContent = "Prédire tout";
+      btn.disabled = false;
+    });
 }
 
 verifierStatut();

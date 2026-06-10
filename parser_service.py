@@ -16,7 +16,12 @@ def _is_cote(token: str) -> bool:
 
 
 def _normalize_team_line(ligne: str) -> str:
-    ligne = re.sub(r"\s*(?:vs|v|contre|[-–—/])\s*", " ", ligne, flags=re.IGNORECASE)
+    # Remplace uniquement les séparateurs "vs", "v", "contre", etc. ENTRE équipes (avec word boundaries)
+    ligne = re.sub(r"\s+(?:vs|contre)(?:\s+|$)", " ", ligne, flags=re.IGNORECASE)
+    # Remplace "v" uniquement s'il est entouré d'espaces (séparateur vrai)
+    ligne = re.sub(r"\s+v\s+", " ", ligne, flags=re.IGNORECASE)
+    # Remplace les tirets/slashes
+    ligne = re.sub(r"\s*[-–—/]\s*", " ", ligne)
     return re.sub(r"\s+", " ", ligne).strip()
 
 
@@ -48,7 +53,13 @@ def _compute_resultat(score: str) -> Tuple[str, int]:
     return res, total
 
 def _normaliser(nom: str) -> str:
-    return nom.strip().lower()
+    normalized = re.sub(r"[^\w\s]", "", nom, flags=re.UNICODE)
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized.strip().lower()
+
+
+def _normalize_team_name(nom: str) -> str:
+    return _normalize_team_line(nom)
 
 
 # ══════════════════════════════════════════════
@@ -110,8 +121,9 @@ def trouver_equipes(ligne: str, equipes: List[str]) -> Tuple[Optional[str], Opti
     Trie par ordre d'apparition dans la ligne.
     """
     trouvees = []
+    ligne_norm = _normalize_team_line(ligne).lower()
     for eq in equipes:
-        if eq.lower() in ligne.lower():
+        if eq.lower() in ligne_norm:
             trouvees.append(eq)
     if len(trouvees) != 2:
         return None, None
@@ -134,16 +146,22 @@ def _detecter_format_cotes(lignes: List[str]) -> str:
             if i > 0:
                 avant = lignes[i - 1]
                 mots = _normalize_team_line(avant).split()
-                if len(mots) >= 3:
+                if len(mots) >= 3 and not re.search(r"\b(?:vs|v|contre)\b", avant, flags=re.IGNORECASE):
                     return "inline"
             return "separe"
     return "separe"
 
 
-def _split_inline_teams(ligne: str) -> Tuple[Optional[str], Optional[str]]:
+def _split_inline_teams(ligne: str, equipes: List[str] = None) -> Tuple[Optional[str], Optional[str]]:
     """Essaye de séparer deux équipes sur une ligne inline."""
     ligne = _strip_cotes_from_line(ligne)
     ligne = _normalize_team_line(ligne)
+    if equipes is not None:
+        ligne_norm = ligne.lower()
+        for eq in equipes:
+            if _normalize_team_line(eq).lower() == ligne_norm:
+                return None, None
+
     mots = ligne.split()
     if len(mots) < 2:
         return None, None
@@ -172,7 +190,7 @@ def _split_inline_teams(ligne: str) -> Tuple[Optional[str], Optional[str]]:
     return meilleure
 
 
-def _parse_cotes_inline_simple(lignes: List[str]) -> List[MatchCotes]:
+def _parse_cotes_inline_simple(lignes: List[str], equipes: List[str] = None) -> List[MatchCotes]:
     """Parse un format inline sans liste d'équipes connues."""
     matches = []
     i = 0
@@ -184,12 +202,12 @@ def _parse_cotes_inline_simple(lignes: List[str]) -> List[MatchCotes]:
 
         # Cas où l'équipe et les cotes sont sur la même ligne
         if _contains_cote(ligne) and not _is_cote(ligne):
-            dom, ext = _split_inline_teams(ligne)
+            dom, ext = _split_inline_teams(ligne, equipes)
             cotes = _extraire_cotes(ligne)
             if dom and ext and len(cotes) >= 3:
                 matches.append(MatchCotes(
-                    equipe_dom=dom,
-                    equipe_ext=ext,
+                    equipe_dom=_normalize_team_name(dom),
+                    equipe_ext=_normalize_team_name(ext),
                     cote_dom=cotes[0],
                     cote_nul=cotes[1],
                     cote_ext=cotes[2],
@@ -203,11 +221,11 @@ def _parse_cotes_inline_simple(lignes: List[str]) -> List[MatchCotes]:
             cotes.extend(_extraire_cotes(lignes[j]))
             j += 1
         if len(cotes) >= 3:
-            dom, ext = _split_inline_teams(lignes[i])
+            dom, ext = _split_inline_teams(lignes[i], equipes)
             if dom and ext:
                 matches.append(MatchCotes(
-                    equipe_dom=dom,
-                    equipe_ext=ext,
+                    equipe_dom=_normalize_team_name(dom),
+                    equipe_ext=_normalize_team_name(ext),
                     cote_dom=cotes[0],
                     cote_nul=cotes[1],
                     cote_ext=cotes[2],
@@ -237,7 +255,7 @@ def parse_cotes(texte: str, equipes: List[str] = None) -> List[MatchCotes]:
             matches = _parse_cotes_inline(lignes, equipes)
             if matches:
                 return matches
-        matches = _parse_cotes_inline_simple(lignes)
+        matches = _parse_cotes_inline_simple(lignes, equipes)
         if matches:
             return matches
         return _parse_cotes_separe(lignes)
@@ -263,8 +281,8 @@ def _parse_cotes_inline(lignes: List[str], equipes: List[str]) -> List[MatchCote
                 j += 1
             if len(cotes) >= 3:
                 matches.append(MatchCotes(
-                    equipe_dom=dom,
-                    equipe_ext=ext,
+                    equipe_dom=_normalize_team_name(dom),
+                    equipe_ext=_normalize_team_name(ext),
                     cote_dom=cotes[0],
                     cote_nul=cotes[1],
                     cote_ext=cotes[2],
@@ -298,8 +316,8 @@ def _parse_cotes_separe(lignes: List[str]) -> List[MatchCotes]:
             j += 1
         if len(noms) >= 2 and len(cotes) >= 3:
             matches.append(MatchCotes(
-                equipe_dom=noms[0].strip(),
-                equipe_ext=noms[1].strip(),
+                equipe_dom=_normalize_team_name(noms[0]),
+                equipe_ext=_normalize_team_name(noms[1]),
                 cote_dom=cotes[0],
                 cote_nul=cotes[1],
                 cote_ext=cotes[2],
@@ -308,8 +326,8 @@ def _parse_cotes_separe(lignes: List[str]) -> List[MatchCotes]:
         elif len(noms) == 1 and _split_inline_teams(noms[0]) != (None, None) and len(cotes) >= 3:
             dom, ext = _split_inline_teams(noms[0])
             matches.append(MatchCotes(
-                equipe_dom=dom,
-                equipe_ext=ext,
+                equipe_dom=_normalize_team_name(dom),
+                equipe_ext=_normalize_team_name(ext),
                 cote_dom=cotes[0],
                 cote_nul=cotes[1],
                 cote_ext=cotes[2],
@@ -346,9 +364,9 @@ def parse_resultats(texte: str) -> List[MatchResultat]:
             if i == 0 or i + 1 >= len(lignes):
                 i += 1
                 continue
-            dom = _nettoyer_nom_equipe(lignes[i - 1].strip())
+            dom = _normalize_team_name(_nettoyer_nom_equipe(lignes[i - 1].strip()))
             score_raw = lignes[i].strip()
-            ext = _nettoyer_nom_equipe(lignes[i + 1].strip())
+            ext = _normalize_team_name(_nettoyer_nom_equipe(lignes[i + 1].strip()))
 
             if not dom or not ext:
                 i += 1

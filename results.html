@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Match Predictor — Résultats</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3d;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --green: #00ff88;
+    --red: #ff4466;
+    --yellow: #ffd600;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; overflow-y: auto; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .nav-logo { font-family: var(--font-display); font-size: 1.4rem; letter-spacing: 2px; color: var(--accent); }
+  .nav-links { display: flex; gap: 8px; }
+  .nav-links a { padding: 8px 18px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; color: var(--muted); transition: all 0.2s; }
+  .nav-links a.active, .nav-links a:hover { background: var(--surface2); color: var(--text); }
+  .nav-links a.active { color: var(--accent); border: 1px solid var(--border); }
+  .container { max-width: 900px; margin: 0 auto; padding: 14px 12px; }
+  .page-header { margin-bottom: 12px; }
+  .page-header h1 { font-family: var(--font-display); font-size: 2rem; letter-spacing: 2px; margin-bottom: 6px; }
+  .page-header p { color: var(--muted); font-size: 0.8rem; line-height: 1.25; }
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .section-title { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 14px; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(80px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .summary-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+  .summary-card strong { display: block; font-size: 1.1rem; }
+  .summary-card span { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.8px; }
+  .results-list { display: grid; gap: 12px; }
+  .result-card { display: grid; grid-template-columns: 1fr auto; gap: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .result-card-left { display: flex; flex-direction: column; gap: 6px; }
+  .result-title { font-size: 0.96rem; font-weight: 700; }
+  .result-badge { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
+  .result-badge.D { color: var(--green); }
+  .result-badge.N { color: var(--yellow); }
+  .result-badge.E { color: var(--red); }
+  .result-card-right { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; color: var(--muted); font-size: 0.82rem; }
+  .result-chip { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; font-size: 0.78rem; }
+  .empty-state { padding: 24px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--muted); }
+  .btn { padding: 10px 20px; border: none; border-radius: 8px; font-family: var(--font-body); font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #33eeff; }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">MATCHPRED</div>
+  <div class="nav-links">
+    <a href="/predict">Prédiction</a>
+    <a href="/results" class="active">Résultats</a>
+  </div>
+</nav>
+<div class="container">
+  <div class="page-header">
+    <h1>RÉSULTATS</h1>
+    <p>Voici la présentation détaillée des matchs prédits. Si vous n'avez pas encore de résultat, revenez à la page de prédiction.</p>
+  </div>
+  <div class="section">
+    <div id="resultsContent"></div>
+  </div>
+</div>
+<script>
+function renderResults(data) {
+  const content = document.getElementById('resultsContent');
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    content.innerHTML = `
+      <div class="empty-state">
+        <p>Aucun résultat disponible.</p>
+        <p>Retournez sur la page de prédiction et lancez une prédiction.</p>
+        <button class="btn btn-primary" onclick="window.location.href='/predict'">Aller à la prédiction</button>
+      </div>
+    `;
+    return;
+  }
+
+  const counts = data.reduce((acc, item) => {
+    acc[item.data.resultat] = (acc[item.data.resultat] || 0) + 1;
+    return acc;
+  }, {});
+
+  content.innerHTML = `
+    <div class="summary-grid">
+      <div class="summary-card"><strong>${data.length}</strong><span>Total</span></div>
+      <div class="summary-card"><strong>${counts['Domicile'] || 0}</strong><span>Domicile</span></div>
+      <div class="summary-card"><strong>${counts['Nul'] || 0}</strong><span>Nul</span></div>
+      <div class="summary-card"><strong>${counts['Extérieur'] || 0}</strong><span>Extérieur</span></div>
+    </div>
+    <div class="results-list">
+      ${data.map(item => `
+        <div class="result-card">
+          <div class="result-card-left">
+            <span class="result-title">${item.match.equipe_dom} vs ${item.match.equipe_ext}</span>
+            <span class="result-chip">${item.match.cote_dom} / ${item.match.cote_nul} / ${item.match.cote_ext}</span>
+          </div>
+          <div class="result-card-right">
+            <span class="result-badge ${item.data.resultat === 'Domicile' ? 'D' : item.data.resultat === 'Nul' ? 'N' : 'E'}">${item.data.resultat}</span>
+            <span>D ${Math.round(item.data.probabilite_dom * 100)}%</span>
+            <span>N ${Math.round(item.data.probabilite_nul * 100)}%</span>
+            <span>E ${Math.round(item.data.probabilite_ext * 100)}%</span>
+            <span>${item.elapsed}s</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  let results = null;
+  try {
+    const raw = sessionStorage.getItem('predictionResults');
+    results = raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    results = null;
+  }
+  renderResults(results);
+});
+</script>
+</body>
+</html>

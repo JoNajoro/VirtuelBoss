@@ -44,6 +44,10 @@ if (frontend_path / "index.html").exists() and (frontend_path / "predict.html").
     async def serve_predict():
         return FileResponse(str(frontend_path / "predict.html"))
 
+    @app.get("/results")
+    async def serve_results():
+        return FileResponse(str(frontend_path / "results.html"))
+
 
 @app.get("/health")
 async def health():
