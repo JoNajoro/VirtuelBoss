@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 
 
 class MatchCotes(BaseModel):
@@ -41,6 +41,8 @@ class PredictionOutput(BaseModel):
     probabilite_nul: float
     probabilite_ext: float
     confiance: float
+    total_buts: Optional[int] = None
+    score_suggestions: Optional[List[str]] = None
 
 
 class TrainResponse(BaseModel):
@@ -48,3 +50,4 @@ class TrainResponse(BaseModel):
     message: str
     accuracy: Optional[float] = None
     nb_matches: Optional[int] = None
+    rmse_total_buts: Optional[float] = None

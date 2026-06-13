@@ -112,6 +112,11 @@
     padding: 10px;
     align-items: center;
   }
+
+  .match-card.predicted {
+    border-color: rgba(0,255,136,0.12);
+    box-shadow: 0 6px 20px rgba(0,255,136,0.04);
+  }
   .match-card div {
     color: var(--text);
     font-size: 0.82rem;
@@ -140,54 +145,7 @@
     margin-right: 8px;
   }
 
-  .prediction-panel {
-    display: none;
-    margin-top: 16px;
-  }
-  .prediction-summary {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(100px, 1fr));
-    gap: 10px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px;
-    margin-bottom: 12px;
-  }
-  .summary-metric {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    color: var(--text);
-  }
-  .summary-metric strong {
-    font-size: 1.05rem;
-  }
-  .summary-label {
-    color: var(--muted);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  .result-card {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    align-items: center;
-  }
-  .result-card-left {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .result-card-right {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+
     justify-content: flex-end;
     color: var(--muted);
     font-size: 0.78rem;
@@ -305,11 +263,6 @@
       <span id="predictAllStatus" style="color:var(--muted); font-size:0.85rem;"></span>
     </div>
     <div id="rawMatchesList" class="match-list"></div>
-    <div id="predictionPanel" class="prediction-panel">
-      <div class="section-title">📊 Présentation des résultats</div>
-      <div id="predictionSummary" class="prediction-summary"></div>
-      <div id="predictionResultsList" class="match-list"></div>
-    </div>
   </div>
 
   </div>
@@ -324,95 +277,7 @@ const API = window.location.origin && window.location.origin !== 'null'
 const labels = { "Domicile": "D", "Nul": "N", "Extérieur": "E" };
 let rawMatches = [];
 let rawResultLines = [];
-let predictionResults = [];
 
-function showPredictionPanel() {
-  const panel = document.getElementById("predictionPanel");
-  if (panel) panel.style.display = "block";
-}
-
-function resetPredictionPanel() {
-  predictionResults = [];
-  const panel = document.getElementById("predictionPanel");
-  const summary = document.getElementById("predictionSummary");
-  const list = document.getElementById("predictionResultsList");
-  if (panel) panel.style.display = "none";
-  if (summary) summary.innerHTML = "";
-  if (list) list.innerHTML = "";
-}
-
-function renderPredictionSummary() {
-  const summary = document.getElementById("predictionSummary");
-  if (!summary) return;
-  if (!predictionResults.length) {
-    summary.innerHTML = "";
-    return;
-  }
-
-  const counts = predictionResults.reduce((acc, item) => {
-    acc[item.data.resultat] = (acc[item.data.resultat] || 0) + 1;
-    return acc;
-  }, {});
-
-  summary.innerHTML = `
-    <div class="summary-metric">
-      <span class="summary-label">Total</span>
-      <strong>${predictionResults.length}</strong>
-    </div>
-    <div class="summary-metric">
-      <span class="summary-label">Domicile</span>
-      <strong>${counts["Domicile"] || 0}</strong>
-    </div>
-    <div class="summary-metric">
-      <span class="summary-label">Nul</span>
-      <strong>${counts["Nul"] || 0}</strong>
-    </div>
-    <div class="summary-metric">
-      <span class="summary-label">Extérieur</span>
-      <strong>${counts["Extérieur"] || 0}</strong>
-    </div>
-  `;
-}
-
-function displayPredictionResult(index, match, data, elapsed) {
-  const resultsList = document.getElementById("predictionResultsList");
-  if (!resultsList) return;
-
-  showPredictionPanel();
-  predictionResults[index] = { match, data, elapsed };
-  renderPredictionSummary();
-
-  let row = document.getElementById(`prediction-row-${index}`);
-  if (!row) {
-    row = document.createElement("div");
-    row.id = `prediction-row-${index}`;
-    row.className = "result-card";
-    resultsList.appendChild(row);
-  }
-
-  const resultClass = labels[data.resultat] || "";
-  row.innerHTML = `
-    <div class="result-card-left">
-      <span class="result-chip">${match.equipe_dom} vs ${match.equipe_ext}</span>
-      <span class="result-badge ${resultClass}">${data.resultat}</span>
-    </div>
-    <div class="result-card-right">
-      <span>D: ${(data.probabilite_dom * 100).toFixed(0)}%</span>
-      <span>N: ${(data.probabilite_nul * 100).toFixed(0)}%</span>
-      <span>E: ${(data.probabilite_ext * 100).toFixed(0)}%</span>
-      <span class="result-time">(${elapsed}s)</span>
-    </div>
-  `;
-}
-
-function storeResultsAndRedirect() {
-  try {
-    sessionStorage.setItem("predictionResults", JSON.stringify(predictionResults));
-    window.location.href = "/results";
-  } catch (error) {
-    console.error(error);
-  }
-}
 
 function showToast(msg, type="success") {
   const t = document.getElementById("toast");
@@ -462,7 +327,11 @@ async function entrainer() {
     badge.textContent = `Précision: ${data.accuracy}%`;
     badge.style.display = "inline-block";
 
-    showToast(`✅ Entraînement réussi ! Précision: ${data.accuracy}%`);
+    if (data.rmse_total_buts !== undefined) {
+      showToast(`✅ Entraînement réussi ! Acc: ${data.accuracy}% • RMSE buts: ${data.rmse_total_buts}`);
+    } else {
+      showToast(`✅ Entraînement réussi ! Précision: ${data.accuracy}%`);
+    }
   } catch(e) {
     showToast(e.message, "error");
   } finally {
@@ -493,7 +362,6 @@ function extraireCotesBrutes(autoPredict = false) {
       if (!res.ok) throw new Error(data.detail || "Impossible de parser les cotes.");
       rawMatches = data;
       rawResultLines = [];
-      resetPredictionPanel();
       afficherMatchesBrutes(data);
       showToast(`✅ ${data.length} match(s) trouvé(s)`);
       if (autoPredict && rawMatches.length) {
@@ -515,7 +383,6 @@ function afficherMatchesBrutes(matches) {
   const container = document.getElementById("rawMatchesList");
   container.innerHTML = "";
   if (!matches.length) {
-    resetPredictionPanel();
     container.innerHTML = "<p>Aucune cote détectée.</p>";
     return;
   }
@@ -537,8 +404,16 @@ function afficherMatchesBrutes(matches) {
     resultLine.className = "match-card-result";
     resultLine.textContent = "Résultat non calculé";
 
+    const btnPredict = document.createElement("button");
+    btnPredict.className = "btn btn-primary";
+    btnPredict.style.padding = "6px 10px";
+    btnPredict.style.fontSize = "0.78rem";
+    btnPredict.textContent = "Prédire";
+    btnPredict.onclick = () => predireMatch(match, resultLine, index);
+
     rawResultLines[index] = resultLine;
 
+    actions.appendChild(btnPredict);
     actions.appendChild(resultLine);
     card.appendChild(details);
     card.appendChild(actions);
@@ -558,8 +433,11 @@ function predireMatch(match, resultLine, index) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Erreur de prédiction.");
       const elapsed = ((performance.now() - start) / 1000).toFixed(2);
-      resultLine.innerHTML = `<span class="result-badge ${labels[data.resultat] || ''}">${data.resultat}</span> D:${(data.probabilite_dom * 100).toFixed(0)}% • N:${(data.probabilite_nul * 100).toFixed(0)}% • E:${(data.probabilite_ext * 100).toFixed(0)}% <span style="opacity:.7; font-size:.8rem;">(${elapsed}s)</span>`;
-      displayPredictionResult(index, match, data, elapsed);
+      // Show prediction + top 3 score suggestions inline in the match card
+      const scores = (data.score_suggestions || []).slice(0,3).join(' • ') || 'N/A';
+      resultLine.innerHTML = `<span class="result-badge ${labels[data.resultat] || ''}">${data.resultat}</span> <span style="margin-left:8px; font-weight:600">Scores: ${scores}</span> <span class="result-chip" style="margin-left:8px">Prédit</span> <span style="margin-left:12px">D:${(data.probabilite_dom * 100).toFixed(0)}% N:${(data.probabilite_nul * 100).toFixed(0)}% E:${(data.probabilite_ext * 100).toFixed(0)}%</span> <span style="opacity:.7; font-size:.8rem; margin-left:8px">(${elapsed}s)</span>`;
+      const card = resultLine.closest('.match-card');
+      if (card) card.classList.add('predicted');
       return data;
     })
     .catch(e => {
@@ -593,7 +471,7 @@ function predireTout() {
   }, Promise.resolve())
     .then(() => {
       status.textContent = `Terminé en ${rawMatches.length} match(s)`;
-      storeResultsAndRedirect();
+      showToast('✅ Résultats affichés dans la page de prédiction.');
     })
     .catch(() => {
       status.textContent = `Terminé avec erreurs`;

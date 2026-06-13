@@ -108,6 +108,7 @@ function renderResults(data) {
           </div>
           <div class="result-card-right">
             <span class="result-badge ${item.data.resultat === 'Domicile' ? 'D' : item.data.resultat === 'Nul' ? 'N' : 'E'}">${item.data.resultat}</span>
+            <span>Scores: ${item.data.score_suggestions ? item.data.score_suggestions.slice(0, 3).join(' • ') : 'N/A'}</span>
             <span>D ${Math.round(item.data.probabilite_dom * 100)}%</span>
             <span>N ${Math.round(item.data.probabilite_nul * 100)}%</span>
             <span>E ${Math.round(item.data.probabilite_ext * 100)}%</span>
